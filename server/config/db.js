@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect("mongodb://127.0.0.1:27017/ayursutra"); // local MongoDB
+    await mongoose.connect("mongodb+srv://malaranu79:Mithun%401910@patientmanagement.pjswded.mongodb.net/ayursutra?retryWrites=true&w=majority"); // local MongoDB
     console.log("✅ MongoDB connected");
   } catch (err) {
     console.error(err.message);
