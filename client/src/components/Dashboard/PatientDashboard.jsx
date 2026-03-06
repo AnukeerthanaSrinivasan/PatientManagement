@@ -1,289 +1,173 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { User, MapPin, Phone, Calendar, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
+import { 
+  User, MapPin, Phone, Calendar, ArrowRight, 
+  CheckCircle, AlertCircle, Loader2 
+} from "lucide-react";
 import NotificationsPanel from "../NotificationsPanel";
 
-// Import background patterns
 const cornerMandala = "/patterns/corner-mandala.svg";
 const lotusBackground = "/patterns/lotus-bg.svg";
 const mandalaBackground = "/patterns/mandala-bg.svg";
 const herbsBackground = "/patterns/herbs-bg.svg";
 
-const PatientDashboard = ({ user, patientProgress, notifications }) => {
+const PatientDashboard = ({ user }) => {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user?._id) return;
+    const fetchDashboardData = async () => {
+      if (!user?._id) return;
+      try {
+        setLoading(true);
+        const response = await axios.get(`http://localhost:5000/api/dashboard/patient/${user._id}`);
+        setData(response.data);
+      } catch (err) {
+        console.error("❌ Fetch Error:", err);
+        setError("Failed to load dashboard.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [user?._id]);
 
-    axios
-      .get(`http://localhost:5000/api/dashboard/patient/${user._id}`)
-      .then((res) => {
-        console.log("✅ Patient Dashboard Data:", res.data);
-        setData(res.data);
-      })
-      .catch((err) => console.error("❌ Patient Dashboard Error:", err));
-  }, [user]);
+  const formatDate = (dateString) => {
+    if (!dateString) return "No Upcoming Session";
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#FDF7E9] flex flex-col items-center justify-center">
+      <Loader2 className="h-12 w-12 text-amber-600 animate-spin mb-2" />
+      <p className="text-amber-900 font-medium italic">Aligning your energies...</p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-[#FDF7E9] flex items-center justify-center p-4">
+      <div className="bg-white p-6 rounded-xl shadow-md border border-red-100 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <p className="text-red-700">{error}</p>
+        <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg">Retry</button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#FDF7E9] w-full">
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4 py-4">
-        {/* Background Decorations */}
-        <div className="fixed top-0 right-0 w-32 h-32 opacity-10 pointer-events-none">
-          <img src={cornerMandala} alt="" className="w-full h-full" />
-        </div>
-        <div className="fixed bottom-0 left-0 w-64 h-64 opacity-5 pointer-events-none">
-          <img src={lotusBackground} alt="" className="w-full h-full" />
-        </div>
+    <div className="min-h-screen bg-[#FDF7E9] w-full pb-10">
+      <img src={cornerMandala} alt="" className="fixed top-0 right-0 w-32 h-32 opacity-10 pointer-events-none" />
+      <img src={lotusBackground} alt="" className="fixed bottom-0 left-0 w-64 h-64 opacity-5 pointer-events-none" />
 
-        {/* Welcome Card */}
-        <div className="relative bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-xl shadow-md border border-amber-100 overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-            <img src={mandalaBackground} alt="" className="w-full h-full" />
-          </div>
-          <div className="flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 py-6">
+        
+        {/* 1. Welcome Card - Progress now strictly from data.progress */}
+        <div className="relative bg-gradient-to-r from-amber-50 to-orange-50 p-8 rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h2 className="text-2xl font-semibold text-amber-900">
-                Namaste, {user.name}
-              </h2>
-              <p className="text-amber-700 mt-2">
-                Continue your path to wellness and balance. Your next healing
-                session awaits in 2 days.
+              <h2 className="text-3xl font-bold text-amber-900">Namaste, {user?.name}</h2>
+              <p className="text-amber-700 mt-2 max-w-md">
+                {data?.customMessage || "Welcome back to your healing journey."}
               </p>
             </div>
-            <div className="text-right">
-              <div className="relative">
-                <span className="text-4xl font-bold text-amber-600">
-                  {data?.progress || 0}%
-                </span>
-                <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10">
-                  <img src={herbsBackground} alt="" className="w-full h-full" />
-                </div>
-              </div>
-              <p className="text-sm text-amber-700">Journey Progress</p>
+            <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-amber-200 text-center min-w-[140px]">
+              <span className="text-4xl font-black text-amber-600">{data?.progress || 0}%</span>
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mt-1">Overall Progress</p>
             </div>
           </div>
         </div>
 
-        {/* Practitioner Assignment Section */}
-        {!data?.hasPractitioner && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl shadow-md border border-blue-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                  <AlertCircle className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-900">No Practitioner Assigned</h3>
-                  <p className="text-blue-700">Find and assign a practitioner to get started with your treatment journey.</p>
-                </div>
+        {/* 2. Practitioner Status */}
+        {!data?.hasPractitioner ? (
+          <div className="bg-white border-2 border-dashed border-amber-300 p-6 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-amber-100 p-3 rounded-full"><User className="text-amber-600" /></div>
+              <div>
+                <h3 className="font-bold text-amber-900">No Practitioner Assigned</h3>
+                <p className="text-sm text-amber-700">Find a specialist to begin your tailored therapy.</p>
               </div>
-              <button
-                onClick={() => window.location.href = '/?tab=practitioner-search'}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-              >
-                Find Practitioner
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </button>
+            </div>
+            <button onClick={() => window.location.href = '/practitioners'} className="bg-amber-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-amber-700 flex items-center gap-2">
+              Find Practitioner <ArrowRight size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-emerald-100 p-3 rounded-full"><CheckCircle className="text-emerald-600" /></div>
+              <div>
+                <h3 className="font-bold text-emerald-900">Dr. {data.assignedPractitioner?.name}</h3>
+                <p className="text-sm text-emerald-700 flex items-center gap-1">
+                  <MapPin size={14} /> {data.assignedPractitioner?.practiceLocation?.city || "Location not set"}
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {data?.hasPractitioner && data?.assignedPractitioner && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl shadow-md border border-green-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
+        {/* 3. Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Next Session", val: formatDate(data?.nextSession), icon: <Calendar className="w-4 h-4" /> },
+            { label: "Completed", val: `${data?.completed || 0}/${data?.total || 0}`, icon: <CheckCircle className="w-4 h-4" /> },
+            { label: "Wellness Score", val: `${data?.wellnessScore || 0}/10`, icon: <User className="w-4 h-4" /> },
+            { label: "Unread Updates", val: data?.notifications?.filter(n => !n.read).length || 0, icon: <Phone className="w-4 h-4" /> }
+          ].map((stat, i) => (
+            <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-amber-100">
+              <div className="flex items-center gap-2 text-amber-600 mb-1">{stat.icon} <span className="text-xs font-bold uppercase">{stat.label}</span></div>
+              <p className="text-lg font-bold text-amber-900">{stat.val}</p>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-green-900">Assigned to Dr. {data.assignedPractitioner.name}</h3>
-                  <div className="flex items-center text-green-700 text-sm mt-1">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {data.assignedPractitioner.practiceLocation?.city}, {data.assignedPractitioner.practiceLocation?.state}
+          ))}
+        </div>
+
+        {/* 4. Journey & Doshas - Cleaned of all "Placeholder" text */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-amber-100">
+            <h3 className="text-lg font-bold text-amber-900 mb-4">Milestones</h3>
+            <div className="relative h-4 bg-amber-50 rounded-full overflow-hidden mb-6">
+              <div className="absolute top-0 left-0 h-full bg-amber-400 transition-all duration-1000" style={{ width: `${data?.progress || 0}%` }} />
+            </div>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-amber-50/50 rounded-lg">
+                <span className="text-sm font-medium text-amber-800">Current Phase</span>
+                <span className="text-sm font-bold text-amber-900">{data?.currentPhase || "Pending Evaluation"}</span>
+              </div>
+              <div className="flex justify-between items-center p-3 border border-dashed border-amber-200 rounded-lg">
+                <span className="text-sm font-medium text-amber-800">Next Milestone</span>
+                <span className="text-sm font-bold text-amber-600">{data?.nextMilestone || "Awaiting Update"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-amber-100">
+            <h3 className="text-lg font-bold text-amber-900 mb-4">Current Dosha Balance</h3>
+            <div className="space-y-5">
+              {data?.doshas && Object.keys(data.doshas).length > 0 ? Object.entries(data.doshas).map(([name, value]) => (
+                <div key={name}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="capitalize font-bold text-amber-800">{name}</span>
+                    <span className="text-amber-600 font-bold">{value}%</span>
                   </div>
-                  {data.assignedPractitioner.practiceAreas && data.assignedPractitioner.practiceAreas.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {data.assignedPractitioner.practiceAreas.slice(0, 2).map((area, index) => (
-                        <span key={index} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                          {area}
-                        </span>
-                      ))}
-                      {data.assignedPractitioner.practiceAreas.length > 2 && (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                          +{data.assignedPractitioner.practiceAreas.length - 2} more
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <div className="h-2 bg-amber-50 rounded-full">
+                    <div className="h-full bg-amber-400 rounded-full" style={{ width: `${value}%` }} />
+                  </div>
                 </div>
-              </div>
-              <button
-                onClick={() => window.location.href = '/?tab=practitioner-search'}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-              >
-                View Details
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl shadow-sm border border-amber-100 relative overflow-hidden group hover:shadow-md transition-all">
-            <div className="absolute top-0 right-0 w-16 h-16 opacity-5 group-hover:opacity-10 transition-opacity">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
-            </div>
-            <p className="text-amber-800 mb-2 font-medium">
-              Next Healing Session
-            </p>
-            <p className="text-xl font-semibold text-amber-900">
-              {data?.nextSession || "Not Scheduled"}
-            </p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl shadow-md border border-amber-100 relative overflow-hidden group hover:shadow-lg transition-all">
-            <div className="absolute top-0 right-0 w-16 h-16 opacity-5 group-hover:opacity-10 transition-opacity">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
-            </div>
-            <p className="text-amber-800 mb-2 font-medium">
-              Sessions Completed
-            </p>
-            <p className="text-xl font-semibold text-amber-900">
-              {data?.completed || 0}/{data?.total || 0}
-            </p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl shadow-md border border-amber-100 relative overflow-hidden group hover:shadow-lg transition-all">
-            <div className="absolute top-0 right-0 w-16 h-16 opacity-5 group-hover:opacity-10 transition-opacity">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
-            </div>
-            <p className="text-amber-800 mb-2 font-medium">
-              Messages & Updates
-            </p>
-            <p className="text-xl font-semibold text-amber-900">
-              {data?.notifications?.length || 0}
-            </p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl shadow-md border border-amber-100 relative overflow-hidden group hover:shadow-lg transition-all">
-            <div className="absolute top-0 right-0 w-16 h-16 opacity-5 group-hover:opacity-10 transition-opacity">
-              <img src={mandalaBackground} alt="" className="w-full h-full" />
-            </div>
-            <p className="text-amber-800 mb-2 font-medium">Wellness Score</p>
-            <p className="text-xl font-semibold text-amber-900">
-              {data?.wellnessScore || 0}/10
-            </p>
-          </div>
-        </div>
-
-        {/* Therapy Progress and Wellness */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl shadow-sm border border-amber-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-              <img src={lotusBackground} alt="" className="w-full h-full" />
-            </div>
-            <h3 className="text-xl font-semibold text-amber-900 mb-6">
-              Your Healing Journey
-            </h3>
-            <div className="w-full bg-amber-200/30 rounded-full h-4 mb-4 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-amber-400 to-orange-400 h-4 rounded-full transition-all duration-500"
-                style={{ width: `${data?.progress || 0}%` }}
-              ></div>
-            </div>
-            <p className="text-amber-800 mb-2">
-              Overall Progress{" "}
-              <span className="font-semibold text-amber-900">
-                {data?.progress || 0}%
-              </span>
-            </p>
-            <p className="text-amber-700">
-              Next Milestone:{" "}
-              <span className="font-medium">
-                {data?.nextMilestone || "Not Set"}
-              </span>
-            </p>
-          </div>
-
-          {/* Dosha Balance & Wellness */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-8 rounded-xl shadow-md border border-amber-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-              <img src={herbsBackground} alt="" className="w-full h-full" />
-            </div>
-            <h3 className="text-xl font-semibold text-amber-900 mb-6">
-              Dosha Balance & Wellness
-            </h3>
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <p className="text-amber-800 font-medium">
-                    Vata (Air & Space)
-                  </p>
-                  <span className="text-amber-900 font-semibold">Balanced</span>
+              )) : (
+                <div className="text-center py-6">
+                  <p className="text-sm text-amber-600 italic">No Dosha data available.</p>
+                  <p className="text-xs text-amber-500">Complete your initial assessment to see your balance.</p>
                 </div>
-                <div className="w-full bg-amber-200/30 rounded-full h-3">
-                  <div
-                    className="bg-gradient-to-r from-amber-400 to-orange-400 h-3 rounded-full"
-                    style={{ width: "90%" }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-2">
-                  <p className="text-amber-800 font-medium">
-                    Pitta (Fire & Water)
-                  </p>
-                  <span className="text-amber-900 font-semibold">
-                    Slightly High
-                  </span>
-                </div>
-                <div className="w-full bg-amber-200/30 rounded-full h-3">
-                  <div
-                    className="bg-gradient-to-r from-amber-400 to-orange-400 h-3 rounded-full"
-                    style={{ width: "80%" }}
-                  ></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-2">
-                  <p className="text-amber-800 font-medium">
-                    Kapha (Earth & Water)
-                  </p>
-                  <span className="text-amber-900 font-semibold">
-                    In Balance
-                  </span>
-                </div>
-                <div className="w-full bg-amber-200/30 rounded-full h-3">
-                  <div
-                    className="bg-gradient-to-r from-amber-400 to-orange-400 h-3 rounded-full"
-                    style={{ width: "85%" }}
-                  ></div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Notifications & Care */}
-        <div className="grid grid-cols-1 gap-4">
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-100 overflow-hidden">
-            <div className="relative">
-              <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-                <img src={mandalaBackground} alt="" className="w-full h-full" />
-              </div>
-              <NotificationsPanel
-                userEmail={user?.email}
-                currentUserId={user?._id}
-                userType={user?.userType}
-              />
-            </div>
-          </div>
+        {/* 5. Notifications */}
+        <div className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden">
+          <NotificationsPanel userEmail={user?.email} currentUserId={user?._id} userType={user?.userType} />
         </div>
       </div>
     </div>
