@@ -182,155 +182,20 @@ router.post("/", async (req, res) => {
 // -------------------- PUT: Update session --------------------
 router.put("/:id", async (req, res) => {
   try {
-    console.log('PUT /sessions/:id body =>', req.body);
-    const { date, startTime, notes, userId, userType, status, sessionName, phase, therapyType } = req.body;
-    const session = await TherapySession.findById(req.params.id).populate('patient');
+    // Use findById then .save() instead of findByIdAndUpdate 
+    // This ensures 'this.status' is available to the validator in your model
+    const session = await TherapySession.findById(req.params.id);
     if (!session) return res.status(404).json({ msg: "Session not found" });
 
-    // Authorization check
-    if (userType === 'patient' && session.patient.email !== userId) {
-      return res.status(403).json({ msg: "Not authorized to edit this session" });
-    }
+    // Update fields
+    Object.assign(session, req.body);
 
-    // Preserve existing values if not provided
-    if (sessionName) session.sessionName = sessionName;
-    if (phase) session.phase = phase;
-    if (therapyType) session.therapyType = therapyType;
-
-    // Status update
-    // Status update
-    if (status) {
-      // Normalize status (lowercase + trim) and log for debugging
-      const normalizedStatus = String(status).toLowerCase().trim();
-      console.log('Received status update:', status, '->', normalizedStatus);
-
-      // If the update is a cancellation (accept common variants), perform a direct update
-      // to avoid triggering full document validation. This allows cancelling even if
-      // some required fields are missing on the stored document.
-      if (normalizedStatus.startsWith('cancel')) {
-        const updated = await TherapySession.findByIdAndUpdate(
-          req.params.id,
-          { $set: { status: 'cancelled' } },
-          { new: true }
-        ).populate('patient');
-
-        if (!updated) return res.status(404).json({ msg: 'Session not found' });
-        return res.json({ msg: 'Session updated', session: updated });
-      }
-
-      try {
-        // For non-cancellation statuses, use the model setter which performs
-        // normalization/validation.
-        session.status = status;
-      } catch (err) {
-        console.error('Status validation error:', err);
-        return res.status(400).json({ 
-          msg: err.message,
-          debug: { 
-            receivedStatus: status,
-            allowedValues: ['scheduled', 'completed', 'cancelled', 'in-progress']
-          }
-        });
-      }
-
-      // If session doesn't have a practitioner, assign a default one
-      if (!session.practitioner) {
-        let defaultPractitioner = await User.findOne({ userType: 'practitioner' });
-        if (!defaultPractitioner) {
-          // Create a default practitioner if none exists
-          defaultPractitioner = new User({
-            name: "Default Practitioner",
-            email: "default.practitioner@ayurveda.com",
-            password: "defaultPass123", // You should use proper password hashing in production
-            userType: "practitioner",
-            status: "active"
-          });
-          await defaultPractitioner.save();
-        }
-        session.practitioner = defaultPractitioner._id;
-      }
-
-      session.status = String(status).toLowerCase();
-    }
-
-    // Date/Time update (reschedule): perform safe partial update to avoid full
-    // document validation (which can fail when other required fields are missing).
-    if (date || startTime) {
-      try {
-        // If cancelling, we handled above. For rescheduling, validate inputs.
-        // Only check conflicts for rescheduling.
-        if (date && startTime) {
-          const conflict = await TherapySession.findOne({
-            date,
-            startTime,
-            _id: { $ne: session._id },
-            status: { $ne: 'cancelled' }
-          });
-          if (conflict) {
-            return res.status(400).json({ msg: `Slot conflict on ${date} at ${startTime}` });
-          }
-
-          // Validate the date
-          if (new Date(date) < new Date(new Date().setHours(0,0,0,0))) {
-            return res.status(400).json({ msg: 'Cannot schedule session in the past' });
-          }
-        }
-
-        // Validate time format if provided
-        if (startTime && !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(startTime)) {
-          return res.status(400).json({ msg: 'Invalid time format. Use HH:MM' });
-        }
-
-        // Build the $set object only with scheduling fields
-        const setObj = {};
-        if (date) setObj.date = new Date(date);
-        if (startTime) setObj.startTime = startTime;
-
-        // Perform a partial update (no validation of other fields)
-        const updated = await TherapySession.findByIdAndUpdate(
-          req.params.id,
-          { $set: setObj },
-          { new: true }
-        ).populate('patient');
-
-        if (!updated) return res.status(404).json({ msg: 'Session not found' });
-        return res.json({ msg: 'Session rescheduled', session: updated });
-      } catch (err) {
-        console.error('Error updating session date/time:', err);
-        return res.status(500).json({ msg: err.message || 'Error updating session' });
-      }
-    }
-
-    // Notes update
-    if (notes) session.notes = notes;
-
-    try {
-      const updatedSession = await session.save();
-      res.json({ 
-        msg: "Session updated", 
-        session: updatedSession,
-        debug: {
-          originalStatus: status,
-          finalStatus: updatedSession.status
-        }
-      });
-    } catch (err) {
-      console.error('Error saving session:', err);
-      return res.status(400).json({ 
-        msg: err.message || 'Failed to update session',
-        debug: {
-          receivedStatus: status,
-          normalizedStatus: session.status,
-          validStatuses: ['scheduled', 'completed', 'cancelled', 'in-progress']
-        }
-      });
-    }
+    await session.save(); // This triggers the model's validation logic correctly
+    res.json({ msg: "Session updated", session });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: err.message || "Server error" });
+    res.status(400).json({ msg: err.message });
   }
 });
-
 // -------------------- DELETE: Cancel session --------------------
 router.delete("/delete/:id", async (req, res) => {
   try {

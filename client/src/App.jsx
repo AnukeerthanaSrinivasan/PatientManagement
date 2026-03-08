@@ -87,7 +87,15 @@ const App = () => {
       setShowLanding(false);
     }
   };
-
+useEffect(() => {
+  if (isAuthenticated && user?.userType === "practitioner" && !user.assignedPatients) {
+    axios.get(`http://localhost:5000/api/dashboard/practitioner/${user._id}`)
+      .then(res => {
+        setUser(prev => ({ ...prev, assignedPatients: res.data.assignedPatients }));
+      })
+      .catch(err => console.error("Syncing patients failed", err));
+  }
+}, [isAuthenticated, user?._id]);
   // ✅ Handle Google OAuth success and tab navigation
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -159,14 +167,20 @@ const App = () => {
           />
         );
 
-      case "scheduling":
-        return (
-          <TherapyScheduling
-            userRole={userRole}
-            user={user}
-            therapySessions={therapySessions}
-          />
-        );
+      // Inside App.jsx - Add this useEffect to sync practitioner data
+
+
+// Inside renderActiveTab()
+case "scheduling":
+  return (
+    <TherapyScheduling
+      userRole={getUserRole()}
+      user={user}
+      therapySessions={therapySessions}
+      assignedPatients={user?.assignedPatients || []} // Fixes empty dropdown
+      isAuthenticated={isAuthenticated}              // Fixes ReferenceError
+    />
+  );
 
       case "notifications":
         return (
