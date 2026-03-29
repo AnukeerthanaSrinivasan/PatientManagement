@@ -58,17 +58,10 @@ router.post("/", async (req, res) => {
     // Panchakarma schedule template
     const therapyTemplate = {
       Virechana: [
-        { phase: "Pre", sessionName: "Preparation 1", daysAfterStart: 0 },
-        { phase: "Pre", sessionName: "Preparation 2", daysAfterStart: 1 },
-        { phase: "Main", sessionName: "Virechana Procedure", daysAfterStart: 2 },
-        { phase: "Post", sessionName: "Dietary Follow-up", daysAfterStart: 3 },
-        { phase: "Post", sessionName: "Check-up", daysAfterStart: 4 },
+        { phase: "Pre", sessionName: "Preparation 1", daysAfterStart: 0 }
       ],
       Vamana: [
-        { phase: "Pre", sessionName: "Preparation 1", daysAfterStart: 0 },
-        { phase: "Main", sessionName: "Vamana Procedure", daysAfterStart: 1 },
-        { phase: "Post", sessionName: "Dietary Follow-up", daysAfterStart: 2 },
-        { phase: "Post", sessionName: "Check-up", daysAfterStart: 3 },
+        { phase: "Pre", sessionName: "Preparation 1", daysAfterStart: 0 }
       ],
     };
 

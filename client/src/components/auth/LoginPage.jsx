@@ -86,14 +86,12 @@ const LoginPage = ({
         });
 
         if (onAuthSuccess) {
-          // ✅ Pass the complete user object from backend
-          // store token for authenticated requests
           if (data.token) localStorage.setItem("token", data.token);
           const userObj = {
             _id: data._id,
             name: data.name,
             email: data.email,
-            userType: data.userType, // "patient" or "practitioner"
+            userType: data.userType,
           };
           localStorage.setItem("user", JSON.stringify(userObj));
           onAuthSuccess(userObj);
@@ -122,29 +120,21 @@ const LoginPage = ({
   };
 
   const handleGoogleLogin = () => {
-    // Redirect to Google OAuth endpoint
     window.location.href = "http://localhost:5000/api/auth/google";
   };
 
   return (
     <div className="min-h-screen w-full flex relative overflow-hidden bg-gradient-to-br from-ayurveda-chandana/30 via-ayurveda-haldi/20 to-ayurveda-kumkum/20">
-      {/* Main background with multiple layers */}
+      {/* Background Layers */}
       <div className="fixed inset-0">
-        {/* Simple, clean gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#8B4513]/20 via-[#CD853F]/15 to-[#DEB887]/20 animate-gradient-slow"></div>
-
-        {/* Single, subtle mandala pattern */}
         <div className="absolute inset-0 bg-[url('/patterns/mandala-bg.svg')] bg-repeat-x bg-center opacity-5 animate-spin-very-slow"></div>
-
-        {/* Main decorative gradient */}
         <div className="absolute top-1/2 left-1/2 w-[1200px] h-[1200px] bg-gradient-to-r from-[#8B4513]/10 to-[#CD853F]/10 rounded-full filter blur-3xl -translate-x-1/2 -translate-y-1/2 animate-pulse-slow"></div>
-
-        {/* Subtle corner decoration */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[url('/patterns/corner-mandala.svg')] bg-no-repeat bg-contain opacity-5"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-[url('/patterns/corner-mandala.svg')] bg-no-repeat bg-contain opacity-5 rotate-180"></div>
       </div>
 
-      {/* Back to Landing Button */}
+      {/* Back Button */}
       {onBackToLanding && (
         <button
           onClick={onBackToLanding}
@@ -161,7 +151,7 @@ const LoginPage = ({
           <div className="mb-8">
             <img
               src="/logo/om-symbol.svg"
-              alt="Om Symbol"
+              alt="Logo Symbol"
               className="w-32 h-32 mx-auto animate-float-slow"
             />
           </div>
@@ -171,43 +161,22 @@ const LoginPage = ({
             </span>
           </h1>
           <p className="text-2xl text-gray-600/90 font-body tracking-wide mb-3">
-            पञ्चकर्म चिकित्सा में आपका स्वागत है
+            Welcome to Your Healing Center
           </p>
           <p className="text-xl text-gray-500/80 font-body italic">
-            Welcome to the journey of Panchakarma healing
+            Welcome to the journey of balanced healing
           </p>
 
-          {/* Panchakarma Icons */}
+          {/* Treatment Icons */}
           <div className="mt-12 grid grid-cols-5 gap-6">
-            <img
-              src="/treatments/vamana.svg"
-              alt="Vamana"
-              className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity"
-            />
-            <img
-              src="/treatments/virechana.svg"
-              alt="Virechana"
-              className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity"
-            />
-            <img
-              src="/treatments/basti.svg"
-              alt="Basti"
-              className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity"
-            />
-            <img
-              src="/treatments/nasya.svg"
-              alt="Nasya"
-              className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity"
-            />
-            <img
-              src="/treatments/raktamoksha.svg"
-              alt="Raktamoksha"
-              className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity"
-            />
+            <img src="/treatments/vamana.svg" alt="Emesis" className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity" />
+            <img src="/treatments/virechana.svg" alt="Purgation" className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity" />
+            <img src="/treatments/basti.svg" alt="Enema" className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity" />
+            <img src="/treatments/nasya.svg" alt="Nasal" className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity" />
+            <img src="/treatments/raktamoksha.svg" alt="Purification" className="w-12 h-12 opacity-60 hover:opacity-100 transition-opacity" />
           </div>
         </div>
 
-        {/* Decorative Background Elements */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-[url('/patterns/herbs-bg.svg')] bg-repeat opacity-5"></div>
           <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-white/10 to-transparent"></div>
@@ -216,18 +185,13 @@ const LoginPage = ({
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
-        {/* Login Form */}
         <div className="w-full max-w-xl bg-[#FDF5E6]/90 backdrop-blur-lg rounded-2xl shadow-[0_8px_32px_rgba(139,69,19,0.15)] p-8 border border-[#DEB887]/30 hover:shadow-[0_8px_32px_rgba(139,69,19,0.25)] transition-all duration-300 relative overflow-hidden">
-          {/* Gradient border effect - Using traditional Ayurvedic colors */}
           <div className="absolute inset-0 rounded-2xl border-2 border-transparent bg-gradient-to-br from-[#8B4513]/30 via-[#CD853F]/20 to-[#DEB887]/30 -z-10"></div>
 
           <h2 className="text-2xl font-display text-dosha-kapha mb-8 text-center">
             Welcome Back
           </h2>
 
-          {/* Panchakarma Treatment Icons */}
-          <div className="absolute -right-16 -top-16 w-32 h-32 opacity-5 bg-[url('/treatments/basti.svg')] bg-no-repeat bg-contain rotate-12"></div>
-          <div className="absolute -left-16 -bottom-16 w-32 h-32 opacity-5 bg-[url('/treatments/nasya.svg')] bg-no-repeat bg-contain -rotate-12"></div>
           <div className="space-y-6">
             {/* Email Field */}
             <div className="space-y-2">
@@ -271,11 +235,7 @@ const LoginPage = ({
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
@@ -292,10 +252,7 @@ const LoginPage = ({
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a
-                href="#"
-                className="text-sm text-green-600 hover:text-green-700 font-medium"
-              >
+              <a href="#" className="text-sm text-green-600 hover:text-green-700 font-medium">
                 Forgot password?
               </a>
             </div>
@@ -308,16 +265,15 @@ const LoginPage = ({
               <div className="absolute inset-0 bg-gradient-to-r from-[#CD853F] to-[#DEB887] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="relative">
                 <span className="text-lg font-display block mb-1">
-                  प्रवेश करें (प्रारंभ)
+                  Login to Account
                 </span>
                 <span className="text-sm opacity-90">
                   Begin Your Healing Journey
                 </span>
               </div>
-              <div className="absolute inset-0 ring-2 ring-white/20 rounded-xl group-hover:ring-white/40 transition-all duration-300"></div>
             </button>
 
-            {/* Divider with Panchakarma Elements */}
+            {/* Divider */}
             <div className="relative my-8">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full h-px bg-gradient-to-r from-transparent via-[#8B4513]/30 to-transparent"></div>
@@ -325,42 +281,15 @@ const LoginPage = ({
               <div className="relative flex justify-center">
                 <div className="bg-[#FDF5E6] px-6 py-2 rounded-full">
                   <div className="text-center">
-                    <p className="text-xs text-[#8B4513]/70 font-decorative">
-                      पञ्चकर्म
+                    <p className="text-xs text-[#8B4513]/70 font-decorative uppercase tracking-widest">
+                      Purification
                     </p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <img
-                        src="/treatments/vamana.svg"
-                        alt="Vamana"
-                        className="w-4 h-4 opacity-40"
-                      />
-                      <img
-                        src="/treatments/virechana.svg"
-                        alt="Virechana"
-                        className="w-4 h-4 opacity-40"
-                      />
-                      <img
-                        src="/treatments/basti.svg"
-                        alt="Basti"
-                        className="w-4 h-4 opacity-40"
-                      />
-                      <img
-                        src="/public/treatments/nasya.svg"
-                        alt="Nasya"
-                        className="w-4 h-4 opacity-40"
-                      />
-                      <img
-                        src="/public/treatments/raktamoksha.svg"
-                        alt="Raktamoksha"
-                        className="w-4 h-4 opacity-40"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Social Login Options */}
+            {/* Social Login */}
             <div className="flex justify-center">
               <button
                 type="button"
@@ -380,7 +309,7 @@ const LoginPage = ({
             </div>
           </div>
 
-          {/* Sign Up Link with Sanskrit */}
+          {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <div className="flex items-center justify-center space-x-2">
               <span className="text-gray-600 text-base">
@@ -397,21 +326,15 @@ const LoginPage = ({
         </div>
       </div>
 
-      {/* Terms and Privacy Policy - Positioned to not interfere with buttons */}
+      {/* Footer Links */}
       <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none z-10">
         <div className="text-xs text-gray-500/70 backdrop-blur-sm bg-white/20 py-1.5 mx-auto inline-block px-4 rounded-full shadow-sm pointer-events-auto">
           By signing in, you agree to our{" "}
-          <a
-            href="#"
-            className="text-ayurveda-kumkum hover:text-ayurveda-brahmi transition-colors font-medium"
-          >
+          <a href="#" className="text-ayurveda-kumkum hover:text-ayurveda-brahmi transition-colors font-medium">
             Terms of Service
           </a>{" "}
           and{" "}
-          <a
-            href="#"
-            className="text-ayurveda-kumkum hover:text-ayurveda-brahmi transition-colors font-medium"
-          >
+          <a href="#" className="text-ayurveda-kumkum hover:text-ayurveda-brahmi transition-colors font-medium">
             Privacy Policy
           </a>
         </div>
