@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -6,12 +6,11 @@ import { useToast } from "../contexts/ToastContext.jsx";
 import {
   Clock, Calendar as CalIcon, Check, XCircle, User,
   Info, Star, CheckCircle, LayoutGrid, List, X, AlertCircle,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Filter
 } from "lucide-react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-/** "YYYY-MM-DD" from any value — uses LOCAL date parts on Date objects */
 function toDateStr(val) {
   if (!val) return "";
   if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
@@ -25,38 +24,20 @@ function toDateStr(val) {
   return String(val).slice(0, 10);
 }
 
-/**
- * "HH:MM" from any value.
- * Handles: "10:00", "10:00:00", "10:00 AM", "2:30 PM",
- *           "2026-03-08T10:00:00.000Z", full ISO strings.
- */
-/**
- * Robust "HH:MM" extractor. 
- * Handles ISO strings, HH:MM:SS, and simple HH:MM
- */
 function toTimeStr(val) {
-  if (!val) return "00:00";
+  if (!val) return "10:00";
   const s = String(val).trim();
-
-  // 1. Check if it's an ISO string (contains 'T')
   if (s.includes("T")) {
-    const parts = s.split("T");
-    if (parts[1]) return parts[1].slice(0, 5);
+    const timePart = s.split("T")[1];
+    if (timePart) return timePart.slice(0, 5);
   }
-
-  // 2. Check for HH:MM:SS or HH:MM
   const timeMatch = s.match(/(\d{1,2}):(\d{2})/);
   if (timeMatch) {
-    const h = timeMatch[1].padStart(2, "0");
-    const m = timeMatch[2].padStart(2, "0");
-    return `${h}:${m}`;
+    return `${timeMatch[1].padStart(2, "0")}:${timeMatch[2].padStart(2, "0")}`;
   }
-
-  // 3. Fallback: just return the first 5 chars if they exist
   return s.length >= 5 ? s.slice(0, 5) : s;
 }
 
-// Month / day names
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -89,14 +70,12 @@ function CustomCalendar({ sessions, onSelectSession }) {
 
   const todayStr = toDateStr(today);
 
-  // Build a map: "YYYY-MM-DD" → [session, ...]
   const byDate = sessions.reduce((acc, s) => {
     const k = toDateStr(s.date);
     if (k) { acc[k] = acc[k] || []; acc[k].push(s); }
     return acc;
   }, {});
 
-  // Grid cells: nulls for padding + 1-based day numbers
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth  = new Date(year, month + 1, 0).getDate();
   const cells = [
@@ -107,7 +86,6 @@ function CustomCalendar({ sessions, onSelectSession }) {
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y-1); } else setMonth(m => m-1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y+1); } else setMonth(m => m+1); };
 
-  // Status dot colour
   const dotColor = (status) => {
     if (status === "completed")            return "bg-green-500";
     if (status === "cancelled")            return "bg-red-400";
@@ -119,7 +97,6 @@ function CustomCalendar({ sessions, onSelectSession }) {
 
   return (
     <div className="bg-white rounded-xl shadow-md border border-amber-100 overflow-hidden">
-      {/* ── Month navigation ── */}
       <div className="flex items-center justify-between px-5 py-4 bg-amber-50 border-b border-amber-100">
         <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700">
           <ChevronLeft size={18} />
@@ -130,37 +107,26 @@ function CustomCalendar({ sessions, onSelectSession }) {
         </button>
       </div>
 
-      {/* ── Day-of-week headers ── */}
       <div className="grid grid-cols-7 border-b border-amber-50">
         {DAYS.map(d => (
           <div key={d} className="text-center text-[11px] font-bold text-amber-500 py-2">{d}</div>
         ))}
       </div>
 
-      {/* ── Calendar grid ── */}
       <div className="grid grid-cols-7">
         {cells.map((day, idx) => {
           if (!day) return <div key={`e-${idx}`} className="border-b border-r border-amber-50 min-h-[80px]" />;
-
-          const mm     = String(month + 1).padStart(2, "0");
-          const dd     = String(day).padStart(2, "0");
-          const key    = `${year}-${mm}-${dd}`;
-          const daily  = byDate[key] || [];
+          const mm = String(month + 1).padStart(2, "0");
+          const dd = String(day).padStart(2, "0");
+          const key = `${year}-${mm}-${dd}`;
+          const daily = byDate[key] || [];
           const isToday = key === todayStr;
 
           return (
-            <div
-              key={key}
-              className={`border-b border-r border-amber-50 min-h-[80px] p-1.5 flex flex-col
-                ${isToday ? "bg-amber-50" : "hover:bg-amber-50/50"}`}
-            >
-              {/* Day number */}
-              <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1 self-end
-                ${isToday ? "bg-amber-600 text-white" : "text-amber-800"}`}>
+            <div key={key} className={`border-b border-r border-amber-50 min-h-[80px] p-1.5 flex flex-col ${isToday ? "bg-amber-50" : "hover:bg-amber-50/50"}`}>
+              <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1 self-end ${isToday ? "bg-amber-600 text-white" : "text-amber-800"}`}>
                 {day}
               </div>
-
-              {/* Session pills */}
               <div className="flex flex-col gap-0.5 flex-1">
                 {daily.slice(0, 3).map(s => (
                   <button
@@ -187,15 +153,8 @@ function CustomCalendar({ sessions, onSelectSession }) {
         })}
       </div>
 
-      {/* ── Legend ── */}
       <div className="flex flex-wrap gap-3 px-4 py-3 bg-amber-50 border-t border-amber-100">
-        {[
-          { label: "Scheduled",   color: "bg-amber-500" },
-          { label: "Completed",   color: "bg-green-500" },
-          { label: "Missed",      color: "bg-gray-400"  },
-          { label: "Cancelled",   color: "bg-red-400"   },
-          { label: "Reschedule",  color: "bg-purple-500"},
-        ].map(({ label, color }) => (
+        {[{ label: "Scheduled", color: "bg-amber-500" }, { label: "Completed", color: "bg-green-500" }, { label: "Missed", color: "bg-gray-400" }, { label: "Cancelled", color: "bg-red-400" }, { label: "Reschedule", color: "bg-purple-500"}].map(({ label, color }) => (
           <div key={label} className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${color}`} />
             <span className="text-[10px] text-amber-700 font-medium">{label}</span>
@@ -209,7 +168,6 @@ function CustomCalendar({ sessions, onSelectSession }) {
 // ─── SESSION DETAIL MODAL ─────────────────────────────────────────────────────
 function SessionDetailModal({ session, userRole, onClose, onStatusUpdate }) {
   const [updating, setUpdating] = useState("");
-
   const handleStatus = async (status) => {
     setUpdating(status);
     await onStatusUpdate(session._id, status, toDateStr(session.date), toTimeStr(session.startTime));
@@ -230,6 +188,13 @@ function SessionDetailModal({ session, userRole, onClose, onStatusUpdate }) {
         </div>
 
         <div className="p-5 space-y-3">
+          {userRole === "practitioner" && session.patient && (
+             <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                <p className="text-xs text-amber-600 font-bold mb-0.5">PATIENT</p>
+                <p className="font-bold text-amber-900 text-sm">{session.patient.name || session.patient.email}</p>
+             </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-amber-50 rounded-lg p-3">
               <p className="text-xs text-amber-600 font-bold mb-0.5">DATE</p>
@@ -238,14 +203,6 @@ function SessionDetailModal({ session, userRole, onClose, onStatusUpdate }) {
             <div className="bg-amber-50 rounded-lg p-3">
               <p className="text-xs text-amber-600 font-bold mb-0.5">TIME</p>
               <p className="font-medium text-amber-900 text-sm">{toTimeStr(session.startTime)}</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-3">
-              <p className="text-xs text-amber-600 font-bold mb-0.5">DURATION</p>
-              <p className="font-medium text-amber-900 text-sm">60 minutes</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-3">
-              <p className="text-xs text-amber-600 font-bold mb-0.5">PHASE</p>
-              <p className="font-medium text-amber-900 text-sm">{session.phase || "Purvakarma"}</p>
             </div>
           </div>
 
@@ -256,21 +213,12 @@ function SessionDetailModal({ session, userRole, onClose, onStatusUpdate }) {
             </div>
           )}
 
-          {userRole === "practitioner" &&
-            ["scheduled","reschedule_requested","cancel_requested"].includes(session.status) && (
+          {userRole === "practitioner" && ["scheduled","reschedule_requested","cancel_requested"].includes(session.status) && (
             <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => handleStatus("completed")}
-                disabled={!!updating}
-                className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-60 flex items-center justify-center gap-1"
-              >
+              <button onClick={() => handleStatus("completed")} disabled={!!updating} className="flex-1 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-60 flex items-center justify-center gap-1">
                 <Check size={14}/>{updating === "completed" ? "Saving…" : "Mark Completed"}
               </button>
-              <button
-                onClick={() => handleStatus("missed")}
-                disabled={!!updating}
-                className="flex-1 py-2 bg-gray-500 text-white rounded-lg text-sm font-bold hover:bg-gray-600 disabled:opacity-60"
-              >
+              <button onClick={() => handleStatus("missed")} disabled={!!updating} className="flex-1 py-2 bg-gray-500 text-white rounded-lg text-sm font-bold hover:bg-gray-600 disabled:opacity-60">
                 {updating === "missed" ? "Saving…" : "Mark Missed"}
               </button>
             </div>
@@ -285,31 +233,22 @@ function SessionDetailModal({ session, userRole, onClose, onStatusUpdate }) {
               )}
             </div>
           )}
-
-          {userRole === "patient" && session.status !== "completed" && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-500 flex items-center gap-2">
-              <AlertCircle size={14}/>
-              Feedback is only available after session completion.
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── REQUEST MODAL (Patient reschedule / cancel) ──────────────────────────────
+// ─── REQUEST MODAL ────────────────────────────────────────────────────────────
 function RequestModal({ session, type, timeSlots, onClose, onSubmit }) {
   const [editDate, setEditDate] = useState(new Date());
   const [editTime, setEditTime] = useState("10:00");
-  const [reason,   setReason]   = useState("");
+  const [reason,    setReason]   = useState("");
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-        <h3 className="text-xl font-bold text-amber-900 mb-4">
-          {type === "reschedule" ? "Request Reschedule" : "Request Cancellation"}
-        </h3>
+        <h3 className="text-xl font-bold text-amber-900 mb-4">{type === "reschedule" ? "Request Reschedule" : "Request Cancellation"}</h3>
         <div className="space-y-4">
           {type === "reschedule" && (
             <>
@@ -319,20 +258,10 @@ function RequestModal({ session, type, timeSlots, onClose, onSubmit }) {
               </select>
             </>
           )}
-          <textarea
-            placeholder={type === "reschedule" ? "Provide a reason…" : "Why do you want to cancel?"}
-            className="w-full border border-amber-200 p-2 rounded text-sm min-h-[80px]"
-            value={reason} onChange={e => setReason(e.target.value)}
-          />
+          <textarea placeholder={type === "reschedule" ? "Provide a reason…" : "Why do you want to cancel?"} className="w-full border border-amber-200 p-2 rounded text-sm min-h-[80px]" value={reason} onChange={e => setReason(e.target.value)} />
           <div className="flex gap-2">
             <button onClick={onClose} className="flex-1 py-3 bg-gray-100 rounded font-bold text-gray-600">Cancel</button>
-            <button
-              onClick={() => reason.trim() && onSubmit({ session, type, date: editDate, time: editTime, reason })}
-              disabled={!reason.trim()}
-              className={`flex-1 py-3 text-white rounded font-bold disabled:opacity-50 ${type === "reschedule" ? "bg-primary-600" : "bg-red-500"}`}
-            >
-              Submit
-            </button>
+            <button onClick={() => reason.trim() && onSubmit({ session, type, date: editDate, time: editTime, reason })} disabled={!reason.trim()} className={`flex-1 py-3 text-white rounded font-bold disabled:opacity-50 ${type === "reschedule" ? "bg-primary-600" : "bg-red-500"}`}>Submit</button>
           </div>
         </div>
       </div>
@@ -340,11 +269,10 @@ function RequestModal({ session, type, timeSlots, onClose, onSubmit }) {
   );
 }
 
-// ─── EDIT SESSION MODAL (Practitioner) ───────────────────────────────────────
+// ─── EDIT SESSION MODAL ───────────────────────────────────────────────────────
 function EditSessionModal({ session, timeSlots, onClose, onSubmit }) {
   const [date, setDate] = useState(new Date(toDateStr(session.date)));
   const [time, setTime] = useState(toTimeStr(session.startTime) || "10:00");
-
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -378,7 +306,7 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
   const [sessions, setSessions] = useState([]);
   const [viewMode, setViewMode] = useState("list");
 
-  // Assignment form
+  // State for Assignment
   const [selectedPatientEmail, setSelectedPatientEmail] = useState("");
   const [therapyType, setTherapyType]   = useState("Virechana");
   const [startDate,   setStartDate]     = useState(new Date());
@@ -395,116 +323,93 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
   const [rating,  setRating]  = useState(5);
   const [comment, setComment] = useState("");
 
-  // Filter
+  // Filters
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPatient, setFilterPatient] = useState("all");
 
   const { show } = useToast();
   const therapyOptions = ["Virechana","Vamana","Basti","Nasya","Raktamokshana"];
   const timeSlots      = ["08:00","09:00","10:00","11:00","14:00","15:00","16:00"];
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchSessions = async () => {
     if (!user?.email) return;
     try {
       const res = await axios.get("http://localhost:5000/sessions", {
         params: { userId: user.email, role: userRole },
       });
-      setSessions(res.data || []);
+      const backendSessions = res.data || [];
+      const enrichedSessions = backendSessions.map((session) => {
+        const localFeedback = localStorage.getItem(`feedback_${session._id}`);
+        if (localFeedback) {
+          return { ...session, feedback: JSON.parse(localFeedback) };
+        }
+        return session;
+      });
+      setSessions(enrichedSessions);
     } catch (err) { console.error("Fetch error:", err); }
   };
 
   useEffect(() => { if (isAuthenticated) fetchSessions(); }, [user, isAuthenticated]);
 
-  // ── Conflict check ───────────────────────────────────────────────────────
   const checkConflict = (dateStr, time, excludeId = null) =>
-    sessions.some(s =>
-      s._id !== excludeId &&
-      toDateStr(s.date) === dateStr &&
-      toTimeStr(s.startTime) === time &&
-      s.status !== "cancelled"
-    );
+    sessions.some(s => s._id !== excludeId && toDateStr(s.date) === dateStr && toTimeStr(s.startTime) === time && s.status !== "cancelled");
 
-  // ── Practitioner: Create ─────────────────────────────────────────────────
   const handleGenerateSchedule = async () => {
     const target = assignedPatients.find(p => p.email === selectedPatientEmail);
     if (!target) return show({ title: "Error", message: "Please select a patient." });
-
     const dateStr = toDateStr(startDate);
-    if (checkConflict(dateStr, assignTime))
-      return show({ title: "Conflict", message: "This time slot is already booked." });
-
+    if (checkConflict(dateStr, assignTime)) return show({ title: "Conflict", message: "This time slot is already booked." });
     setLoading(true);
     try {
       await axios.post("http://localhost:5000/sessions", {
-        patientId: target.email, therapyType,
-        startDate: dateStr, startTime: assignTime,
-        status: "scheduled", practitionerId: user.email,
+        patientId: target.email, therapyType, startDate: dateStr, startTime: assignTime, status: "scheduled", practitionerId: user.email,
       });
       show({ title: "Success", message: "Therapy assigned successfully!" });
       fetchSessions();
-    } catch (err) {
-      show({ title: "Error", message: err.response?.data?.msg || "Assignment failed." });
-    } finally { setLoading(false); }
+    } catch (err) { show({ title: "Error", message: err.response?.data?.msg || "Assignment failed." }); } finally { setLoading(false); }
   };
 
-  // ── Practitioner: Edit ───────────────────────────────────────────────────
   const handleEditSubmit = async (sessionId, date, time) => {
-    if (checkConflict(date, time, sessionId))
-      return show({ title: "Conflict", message: "This time slot is already booked." });
+    if (checkConflict(date, time, sessionId)) return show({ title: "Conflict", message: "This time slot is already booked." });
     try {
-      await axios.put(`http://localhost:5000/sessions/${sessionId}`, {
-        userId: user.email, userType: userRole,
-        date, startTime: time, status: "scheduled",
-        notes: "Rescheduled by practitioner.",
-      });
+      await axios.put(`http://localhost:5000/sessions/${sessionId}`, { userId: user.email, userType: userRole, date, startTime: time, status: "scheduled", notes: "Rescheduled by practitioner." });
       show({ title: "Updated", message: "Session rescheduled." });
       setEditingSession(null);
       fetchSessions();
     } catch (err) { console.error(err); }
   };
 
-  // ── Practitioner: Cancel ─────────────────────────────────────────────────
   const handleCancelSession = async (sessionId) => {
     if (!window.confirm("Cancel this session?")) return;
     try {
-      await axios.put(`http://localhost:5000/sessions/${sessionId}`, {
-        userId: user.email, userType: userRole, status: "cancelled",
-      });
+      await axios.put(`http://localhost:5000/sessions/${sessionId}`, { userId: user.email, userType: userRole, status: "cancelled" });
       show({ title: "Cancelled", message: "Session cancelled." });
       fetchSessions();
     } catch (err) { console.error(err); }
   };
 
-  // ── Practitioner: Mark status ────────────────────────────────────────────
   const handleStatusUpdate = async (sessionId, status, date, startTime) => {
     try {
-      await axios.put(`http://localhost:5000/sessions/${sessionId}`, {
-        userId: user.email, userType: userRole, status, date, startTime,
-      });
+      await axios.put(`http://localhost:5000/sessions/${sessionId}`, { userId: user.email, userType: userRole, status, date, startTime });
       show({ title: "Updated", message: `Session marked as ${status}.` });
       await fetchSessions();
       setDetailSession(null);
-    } catch (err) {
-      show({ title: "Error", message: err.response?.data?.msg || "Update failed." });
-    }
+    } catch (err) { show({ title: "Error", message: err.response?.data?.msg || "Update failed." }); }
   };
 
-  // ── Practitioner: Approve/reject patient request ─────────────────────────
   const handleDecision = async (session, decision) => {
     let payload = { userId: user.email, userType: userRole, patientId: session.patient?.email || user.email };
     if (session.status === "cancel_requested") {
-      payload.status    = decision === "accept" ? "cancelled" : "scheduled";
-      payload.date      = toDateStr(session.date);
+      payload.status = decision === "accept" ? "cancelled" : "scheduled";
+      payload.date = toDateStr(session.date);
       payload.startTime = toTimeStr(session.startTime);
-      payload.notes     = decision === "accept" ? "Cancellation approved." : "Cancellation declined.";
+      payload.notes = decision === "accept" ? "Cancellation approved." : "Cancellation declined.";
     } else {
-      const match       = session.notes?.match(/REQUESTED: (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2})/);
-      payload.date      = match ? match[1] : toDateStr(session.date);
+      const match = session.notes?.match(/REQUESTED: (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2})/);
+      payload.date = match ? match[1] : toDateStr(session.date);
       payload.startTime = match ? match[2] : toTimeStr(session.startTime);
-      payload.status    = "scheduled";
-      payload.notes     = decision === "accept"
-        ? `Approved: moved to ${payload.date} at ${payload.startTime}`
-        : "Reschedule request declined.";
+      payload.status = "scheduled";
+      payload.notes = decision === "accept" ? `Approved: moved to ${payload.date} at ${payload.startTime}` : "Reschedule request declined.";
     }
     try {
       await axios.put(`http://localhost:5000/sessions/${session._id}`, payload);
@@ -513,106 +418,68 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
     } catch (err) { console.error(err); }
   };
 
-  // ── Patient: Request reschedule / cancel ─────────────────────────────────
   const handlePatientRequest = async ({ session, type, date, time, reason }) => {
     const newStatus = type === "reschedule" ? "reschedule_requested" : "cancel_requested";
-    const notes     = type === "reschedule"
-      ? `REQUESTED: ${toDateStr(date)} at ${time}. Reason: ${reason}`
-      : `CANCEL REQUEST: ${reason}`;
+    const notes = type === "reschedule" ? `REQUESTED: ${toDateStr(date)} at ${time}. Reason: ${reason}` : `CANCEL REQUEST: ${reason}`;
     try {
-      await axios.put(`http://localhost:5000/sessions/${session._id}`, {
-        userId: user.email, userType: userRole,
-        patientId: user.email, status: newStatus,
-        date: toDateStr(session.date), startTime: toTimeStr(session.startTime), notes,
-      });
+      await axios.put(`http://localhost:5000/sessions/${session._id}`, { userId: user.email, userType: userRole, patientId: user.email, status: newStatus, date: toDateStr(session.date), startTime: toTimeStr(session.startTime), notes });
       show({ title: "Sent", message: "Request sent to practitioner." });
       setRequestModal(null);
       fetchSessions();
     } catch (err) { console.error(err); }
   };
 
-  // ── Patient: Submit feedback ─────────────────────────────────────────────
-  // Stores feedback inline via PUT /sessions/:id  (no separate endpoint needed)
   const handleFeedbackSubmit = async () => {
     if (!feedbackSession) return;
+    const feedbackData = { rating, comment, patientId: user.email, submittedAt: new Date().toISOString() };
+    localStorage.setItem(`feedback_${feedbackSession._id}`, JSON.stringify(feedbackData));
     try {
-      await axios.put(`http://localhost:5000/sessions/${feedbackSession._id}`, {
-        userId:    user.email,
-        userType:  userRole,
-        date:      toDateStr(feedbackSession.date),
-        startTime: toTimeStr(feedbackSession.startTime),
-        status:    feedbackSession.status,         // keep existing status
-        feedback:  { rating, comment, patientId: user.email, submittedAt: new Date().toISOString() },
-      });
-      show({ title: "Thank You", message: "Feedback submitted!" });
-      setFeedbackSession(null);
-      setRating(5);
-      setComment("");
-      fetchSessions();
-    } catch (err) {
-      // Fallback: also try the dedicated endpoint in case it exists
-      try {
-        await axios.post(`http://localhost:5000/sessions/${feedbackSession._id}/feedback`, {
-          rating, comment, patientId: user.email,
-        });
-        show({ title: "Thank You", message: "Feedback submitted!" });
-        setFeedbackSession(null);
-        setRating(5);
-        setComment("");
-        fetchSessions();
-      } catch (err2) {
-        show({ title: "Error", message: "Could not submit feedback. Please try again." });
-        console.error(err2);
-      }
-    }
+      await axios.put(`http://localhost:5000/sessions/${feedbackSession._id}`, { userId: user.email, userType: userRole, date: toDateStr(feedbackSession.date), startTime: toTimeStr(feedbackSession.startTime), status: feedbackSession.status, feedback: feedbackData });
+    } catch (_) {}
+    show({ title: "Thank you!", message: "Feedback submitted!" });
+    setFeedbackSession(null);
+    fetchSessions();
   };
 
-  // ── Derived ──────────────────────────────────────────────────────────────
-  const pendingRequests = sessions.filter(
-    s => s.status === "reschedule_requested" || s.status === "cancel_requested"
-  );
-  const filteredSessions = sessions.filter(s =>
-    filterStatus === "all" ? true : s.status === filterStatus
-  );
+  // Derived filtered data
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(s => {
+      const matchStatus = filterStatus === "all" ? true : s.status === filterStatus;
+      const matchPatient = filterPatient === "all" ? true : (s.patient?.email === filterPatient);
+      return matchStatus && matchPatient;
+    });
+  }, [sessions, filterStatus, filterPatient]);
+
+  const pendingRequests = sessions.filter(s => s.status === "reschedule_requested" || s.status === "cancel_requested");
 
   const badgeClass = (status) => {
-    if (status === "completed")            return "bg-green-100 text-green-700";
-    if (status === "cancelled")            return "bg-red-100 text-red-700";
-    if (status === "missed")               return "bg-gray-100 text-gray-600";
+    if (status === "completed") return "bg-green-100 text-green-700";
+    if (status === "cancelled") return "bg-red-100 text-red-700";
+    if (status === "missed") return "bg-gray-100 text-gray-600";
     if (status === "reschedule_requested") return "bg-purple-100 text-purple-700";
-    if (status === "cancel_requested")     return "bg-orange-100 text-orange-700";
+    if (status === "cancel_requested") return "bg-orange-100 text-orange-700";
     return "bg-amber-100 text-amber-700";
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="max-w-5xl mx-auto p-6 bg-[#FDF7E9] min-h-screen">
-
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-amber-900">Therapy Schedule</h1>
         <div className="flex bg-white rounded-lg p-1 border border-amber-200">
-          <button onClick={() => setViewMode("list")} className={`p-2 rounded ${viewMode === "list" ? "bg-amber-100" : ""}`} title="List view">
-            <List size={20}/>
-          </button>
-          <button onClick={() => setViewMode("calendar")} className={`p-2 rounded ${viewMode === "calendar" ? "bg-amber-100" : ""}`} title="Calendar view">
-            <LayoutGrid size={20}/>
-          </button>
+          <button onClick={() => setViewMode("list")} className={`p-2 rounded ${viewMode === "list" ? "bg-amber-100" : ""}`} title="List view"><List size={20}/></button>
+          <button onClick={() => setViewMode("calendar")} className={`p-2 rounded ${viewMode === "calendar" ? "bg-amber-100" : ""}`} title="Calendar view"><LayoutGrid size={20}/></button>
         </div>
       </div>
 
-      {/* ── PRACTITIONER ASSIGNMENT PANEL ───────────────────────────────── */}
       {userRole === "practitioner" && (
         <div className="mb-8 p-6 bg-white rounded-xl border-2 border-primary-100 shadow-sm">
-          <h2 className="text-lg font-bold mb-4 text-amber-900 flex items-center">
-            <User className="mr-2 text-primary-600"/> New Assignment
-          </h2>
+          <h2 className="text-lg font-bold mb-4 text-amber-900 flex items-center"><User className="mr-2 text-primary-600"/> New Assignment</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div>
               <label className="text-xs font-bold text-amber-800 mb-1 block">PATIENT</label>
               <select className="w-full p-2 border rounded bg-white" value={selectedPatientEmail} onChange={e => setSelectedPatientEmail(e.target.value)}>
-                <option value="">Select Patient</option>
-                {assignedPatients.map(p => <option key={p._id} value={p.email}>{p.name}</option>)}
+                <option value="" disabled>Select Patient</option>
+                {assignedPatients.map(p => <option key={p.email} value={p.email}>{p.name || p.email}</option>)}
               </select>
             </div>
             <div>
@@ -631,41 +498,26 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
                 {timeSlots.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <button onClick={handleGenerateSchedule} disabled={loading}
-              className="bg-primary-600 text-white p-2.5 rounded font-bold disabled:opacity-50 hover:bg-primary-700 transition-colors">
+            <button onClick={handleGenerateSchedule} disabled={loading} className="bg-primary-600 text-white p-2.5 rounded font-bold disabled:opacity-50 hover:bg-primary-700 transition-colors">
               {loading ? "Processing…" : "Assign Session"}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── PENDING REQUESTS BANNER ──────────────────────────────────────── */}
       {userRole === "practitioner" && pendingRequests.length > 0 && (
         <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-xl">
-          <h3 className="text-sm font-bold text-purple-800 mb-3 flex items-center gap-2">
-            <AlertCircle size={15}/>
-            {pendingRequests.length} Pending Patient Request{pendingRequests.length > 1 ? "s" : ""}
-          </h3>
+          <h3 className="text-sm font-bold text-purple-800 mb-3 flex items-center gap-2"><AlertCircle size={15}/> {pendingRequests.length} Pending Patient Requests</h3>
           <div className="space-y-2">
             {pendingRequests.map(s => (
               <div key={s._id} className="bg-white rounded-lg p-3 border border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-amber-900 text-sm">
-                    {s.therapyType}
-                    <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold ${badgeClass(s.status)}`}>{s.status}</span>
-                  </p>
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    Original: {toDateStr(s.date)} at {toTimeStr(s.startTime)}
-                  </p>
-                  {s.notes && (
-                    <p className="text-xs text-purple-700 mt-1 flex items-start gap-1">
-                      <Info size={11} className="mt-0.5 shrink-0"/>{s.notes}
-                    </p>
-                  )}
+                  <p className="font-semibold text-amber-900 text-sm">{s.therapyType} <span className="text-xs text-amber-500">for {s.patient?.name || s.patient?.email}</span></p>
+                  <p className="text-xs text-amber-600">Original: {toDateStr(s.date)} at {toTimeStr(s.startTime)}</p>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => handleDecision(s, "accept")} className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700" title="Approve"><Check size={15}/></button>
-                  <button onClick={() => handleDecision(s, "reject")} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600" title="Reject"><XCircle size={15}/></button>
+                <div className="flex gap-2">
+                  <button onClick={() => handleDecision(s, "accept")} className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700"><Check size={15}/></button>
+                  <button onClick={() => handleDecision(s, "reject")} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600"><XCircle size={15}/></button>
                 </div>
               </div>
             ))}
@@ -673,47 +525,47 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
         </div>
       )}
 
-      {/* ── FILTER BAR (list only) ───────────────────────────────────────── */}
       {viewMode === "list" && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {["all","scheduled","completed","cancelled","missed"].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-full border capitalize transition-colors
-                ${filterStatus === s ? "bg-amber-600 text-white border-amber-600" : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"}`}>
-              {s === "all" ? "All" : s}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <div className="flex flex-wrap gap-2">
+            {["all","scheduled","completed","cancelled","missed"].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)} className={`text-xs font-bold px-3 py-1.5 rounded-full border capitalize ${filterStatus === s ? "bg-amber-600 text-white border-amber-600" : "bg-white text-amber-700 border-amber-200"}`}>{s}</button>
+            ))}
+          </div>
+          
+          {userRole === "practitioner" && assignedPatients.length > 0 && (
+            <div className="flex items-center gap-2 bg-white border border-amber-200 px-3 py-1 rounded-lg shadow-sm">
+              <Filter size={14} className="text-amber-600"/>
+              <select value={filterPatient} onChange={e => setFilterPatient(e.target.value)} className="text-xs font-bold text-amber-700 bg-transparent outline-none cursor-pointer">
+                <option value="all">All Patients</option>
+                {assignedPatients.map(p => (
+                  <option key={p.email} value={p.email}>{p.name || p.email}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── CALENDAR VIEW ────────────────────────────────────────────────── */}
-      {viewMode === "calendar" && (
-        <CustomCalendar
-          sessions={sessions}
-          onSelectSession={s => setDetailSession(s)}
-        />
-      )}
-
-      {/* ── LIST VIEW ────────────────────────────────────────────────────── */}
-      {viewMode === "list" && (
+      {viewMode === "calendar" ? (
+        <CustomCalendar sessions={filteredSessions} onSelectSession={setDetailSession} />
+      ) : (
         <div className="grid gap-4">
-          {filteredSessions.length === 0 && (
-            <div className="text-center py-10 text-amber-600">No sessions found.</div>
-          )}
+          {filteredSessions.length === 0 && <div className="text-center py-10 text-amber-600">No sessions found.</div>}
           {filteredSessions.map(session => (
-            <div key={session._id}
-              className={`bg-white p-5 rounded-xl border shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row justify-between md:items-center
-                ${session.status === "reschedule_requested" ? "border-purple-300" :
-                  session.status === "cancel_requested"     ? "border-orange-300" : "border-amber-100"}`}>
+            <div key={session._id} className={`bg-white p-5 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between md:items-center border-amber-100`}>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-amber-900">{session.therapyType}</h3>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold ${badgeClass(session.status)}`}>
-                    {session.status}
-                  </span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-bold ${badgeClass(session.status)}`}>{session.status}</span>
+                  {userRole === "practitioner" && session.patient && (
+                    <span className="text-[11px] font-bold text-primary-700 px-2 bg-primary-50 rounded-md flex items-center gap-1">
+                      <User size={12}/> {session.patient.name || "Patient"}
+                    </span>
+                  )}
                   {session.feedback && (
-                    <span className="text-[10px] text-amber-600 flex items-center gap-0.5 italic">
-                      <CheckCircle size={11}/> Feedback Submitted
+                    <span className="text-[10px] text-green-600 flex items-center gap-0.5 font-bold">
+                      <Star size={11} fill="currentColor"/> Feedback Received
                     </span>
                   )}
                 </div>
@@ -721,51 +573,21 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
                   <CalIcon className="w-4 h-4"/> {toDateStr(session.date)}
                   <Clock className="w-4 h-4 ml-2"/> {toTimeStr(session.startTime)}
                 </p>
-                {session.notes && (
-                  <p className="text-xs text-gray-500 mt-1 flex items-start gap-1 max-w-sm">
-                    <Info size={11} className="mt-0.5 shrink-0"/>{session.notes}
-                  </p>
-                )}
               </div>
 
               <div className="flex gap-2 mt-4 md:mt-0 flex-wrap">
-                <button onClick={() => setDetailSession(session)}
-                  className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg font-bold hover:bg-amber-100">
-                  Details
-                </button>
-
-                {/* Practitioner controls */}
+                <button onClick={() => setDetailSession(session)} className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg font-bold">Details</button>
                 {userRole === "practitioner" && session.status === "scheduled" && (
                   <>
-                    <button onClick={() => setEditingSession(session)}
-                      className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-100">Edit</button>
-                    <button onClick={() => handleStatusUpdate(session._id, "completed", toDateStr(session.date), toTimeStr(session.startTime))}
-                      className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg flex items-center font-bold hover:bg-green-700">
-                      <Check size={13} className="mr-1"/> Complete
-                    </button>
-                    <button onClick={() => handleStatusUpdate(session._id, "missed", toDateStr(session.date), toTimeStr(session.startTime))}
-                      className="text-xs bg-gray-500 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-600">Missed</button>
-                    <button onClick={() => handleCancelSession(session._id)}
-                      className="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100">Cancel</button>
+                    <button onClick={() => setEditingSession(session)} className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg font-bold">Edit</button>
+                    <button onClick={() => handleStatusUpdate(session._id, "completed", toDateStr(session.date), toTimeStr(session.startTime))} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center"><Check size={13} className="mr-1"/> Complete</button>
                   </>
                 )}
-
-                {/* Patient controls */}
                 {userRole === "patient" && session.status === "scheduled" && (
-                  <>
-                    <button onClick={() => setRequestModal({ session, type: "reschedule" })}
-                      className="text-sm bg-amber-50 text-amber-700 border border-amber-200 px-4 py-2 rounded-lg font-bold">Reschedule</button>
-                    <button onClick={() => setRequestModal({ session, type: "cancel" })}
-                      className="text-sm bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold">Cancel</button>
-                  </>
+                  <button onClick={() => setRequestModal({ session, type: "reschedule" })} className="text-sm bg-amber-50 text-amber-700 border border-amber-200 px-4 py-2 rounded-lg font-bold">Reschedule</button>
                 )}
-
-                {/* Feedback (patient + completed only) */}
                 {userRole === "patient" && session.status === "completed" && !session.feedback && (
-                  <button onClick={() => { setFeedbackSession(session); setRating(5); setComment(""); }}
-                    className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg font-bold flex items-center hover:bg-primary-700">
-                    <Star size={14} className="mr-2"/> Leave Feedback
-                  </button>
+                  <button onClick={() => setFeedbackSession(session)} className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg font-bold flex items-center"><Star size={14} className="mr-2"/> Leave Feedback</button>
                 )}
               </div>
             </div>
@@ -773,30 +595,13 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
         </div>
       )}
 
-      {/* ── DETAIL MODAL ─────────────────────────────────────────────────── */}
-      {detailSession && (
-        <SessionDetailModal
-          session={detailSession}
-          userRole={userRole}
-          onClose={() => setDetailSession(null)}
-          onStatusUpdate={handleStatusUpdate}
-        />
-      )}
-
-      {/* ── FEEDBACK MODAL ───────────────────────────────────────────────── */}
+      {detailSession && <SessionDetailModal session={detailSession} userRole={userRole} onClose={() => setDetailSession(null)} onStatusUpdate={handleStatusUpdate} />}
       {feedbackSession && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold text-amber-900 mb-2">How was your session?</h3>
-            <p className="text-sm text-amber-600 mb-4">
-              {feedbackSession.therapyType} on {toDateStr(feedbackSession.date)}
-            </p>
             <StarRating value={rating} onChange={setRating} size={32}/>
-            <textarea
-              placeholder="Share your experience…"
-              className="w-full border border-amber-200 p-3 rounded-xl text-sm min-h-[100px] focus:ring-2 focus:ring-primary-500 outline-none mt-5"
-              value={comment} onChange={e => setComment(e.target.value)}
-            />
+            <textarea placeholder="Share your experience…" className="w-full border border-amber-200 p-3 rounded-xl text-sm min-h-[100px] mt-5" value={comment} onChange={e => setComment(e.target.value)} />
             <div className="flex gap-3 mt-6">
               <button onClick={() => setFeedbackSession(null)} className="flex-1 py-3 text-gray-500 font-bold">Close</button>
               <button onClick={handleFeedbackSubmit} className="flex-1 py-3 bg-primary-600 text-white rounded-xl font-bold">Submit</button>
@@ -804,27 +609,8 @@ const TherapyScheduling = ({ userRole, user, assignedPatients = [], isAuthentica
           </div>
         </div>
       )}
-
-      {/* ── REQUEST MODAL ────────────────────────────────────────────────── */}
-      {requestModal && (
-        <RequestModal
-          session={requestModal.session}
-          type={requestModal.type}
-          timeSlots={timeSlots}
-          onClose={() => setRequestModal(null)}
-          onSubmit={handlePatientRequest}
-        />
-      )}
-
-      {/* ── EDIT SESSION MODAL ───────────────────────────────────────────── */}
-      {editingSession && (
-        <EditSessionModal
-          session={editingSession}
-          timeSlots={timeSlots}
-          onClose={() => setEditingSession(null)}
-          onSubmit={handleEditSubmit}
-        />
-      )}
+      {requestModal && <RequestModal session={requestModal.session} type={requestModal.type} timeSlots={timeSlots} onClose={() => setRequestModal(null)} onSubmit={handlePatientRequest} />}
+      {editingSession && <EditSessionModal session={editingSession} timeSlots={timeSlots} onClose={() => setEditingSession(null)} onSubmit={handleEditSubmit} />}
     </div>
   );
 };

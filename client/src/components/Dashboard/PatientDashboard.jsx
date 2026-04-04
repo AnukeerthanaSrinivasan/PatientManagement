@@ -34,11 +34,13 @@ const PatientDashboard = ({ user }) => {
   }, [user?._id]);
 
   const formatDate = (dateString) => {
-    if (!dateString) return "No Upcoming Session";
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-  };
+  if (!dateString) return "No Upcoming Session";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "No Upcoming Session"; // ← add this
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+};
 
   if (loading) return (
     <div className="min-h-screen bg-[#FDF7E9] flex flex-col items-center justify-center">

@@ -173,17 +173,28 @@ router.post("/", async (req, res) => {
 });
 
 // -------------------- PUT: Update session --------------------
+// -------------------- PUT: Update session --------------------
 router.put("/:id", async (req, res) => {
   try {
-    // Use findById then .save() instead of findByIdAndUpdate 
-    // This ensures 'this.status' is available to the validator in your model
     const session = await TherapySession.findById(req.params.id);
     if (!session) return res.status(404).json({ msg: "Session not found" });
 
-    // Update fields
-    Object.assign(session, req.body);
+    const { feedback, ...rest } = req.body;
 
-    await session.save(); // This triggers the model's validation logic correctly
+    // Apply all normal fields
+    Object.assign(session, rest);
+
+    // Apply feedback separately so Mongoose tracks it
+    if (feedback) {
+      session.feedback = {
+        rating:      feedback.rating,
+        comment:     feedback.comment,
+        patientId:   feedback.patientId,
+        submittedAt: feedback.submittedAt ? new Date(feedback.submittedAt) : new Date()
+      };
+    }
+
+    await session.save();
     res.json({ msg: "Session updated", session });
   } catch (err) {
     res.status(400).json({ msg: err.message });
